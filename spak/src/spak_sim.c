@@ -652,7 +652,7 @@ void simulate_power (struct task_set* taskset,
 #endif
     simulate (taskset,end_time,NULL,0.0,NULL,NULL);
 
-    fprintf(power_fp, "time = %d\t energy = %f\t dispatch = %d\n",
+    fprintf(power_fp, "%d\t%f\t%d\n",
             end_time,
             energy_sum,
             dispatch_count);

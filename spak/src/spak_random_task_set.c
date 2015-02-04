@@ -180,6 +180,7 @@ restart:
 #endif
             C = (time_value) (U * T);
             if(0==C){
+            	free_task_set (ts);
             	goto restart;
             }
         }

@@ -47,13 +47,13 @@ time_value get_period (struct task_set* ts, int t)
 {
     return ts->tasks[t].T;
 }
-#ifdef USE_CLUSTER
+
 void set_jitter (struct task_set* ts, int t, int J)
 {
     assert (ts);
     ts->tasks[t].J = J;
 }
-#endif
+
 void change_wcet (struct task_set* ts, int t, int inc)
 {
     assert (ts);
@@ -284,7 +284,7 @@ int is_all_nonpreemptible (struct task_set* ts)
 
     return TRUE;
 }
-#ifdef USE_CLUSTER
+
 void new_task_barrier (struct task_set* ts, int x)
 {
     assert (ts);
@@ -516,7 +516,7 @@ int barriers_permit_pri (struct task_set* ts, int t, int pri)
 
     return TRUE;
 }
-#endif
+
 int is_pri_unique (struct task_set* ts)
 {
     int* x = (int*) xmalloc ((sizeof (int) * ts->num_tasks));
@@ -538,7 +538,7 @@ int is_pri_unique (struct task_set* ts)
     xfree (x);
     return TRUE;
 }
-#ifdef USE_CLUSTER
+
 int constraints_valid (struct task_set* ts)
 {
     {
@@ -726,7 +726,7 @@ void respect_constraints (struct task_set* ts)
 
     assert (constraints_valid (ts));
 }
-#endif
+
 /*
  * create a new task */
 int new_task (struct task_set* ts,
@@ -869,7 +869,7 @@ int new_simple_task_with_pri (struct task_set* ts,
     ts->tasks[i].PT = PT;
     return i;
 }
-#ifdef USE_CLUSTER
+
 void new_sem (struct task_set* ts,
               const char* sem_name)
 {
@@ -960,7 +960,7 @@ void implement_clusters_using_locks (struct task_set* ts)
         }
     }
 }
-#endif
+
 /*
  * assign rate or deadline monotonic priorities to tasks
  */
@@ -976,7 +976,6 @@ void set_priorities (struct task_set* ts,
     assert (ts);
 
     switch (way) {
-#ifdef USE_CLUSTER
         case BY_CLUSTER:
             pri = ts->num_tasks-1;
             sort_task_barriers (ts);
@@ -1012,7 +1011,6 @@ void set_priorities (struct task_set* ts,
                 }
             }
             break;
-#endif
         case INORDER:
             for (i=0; i<ts->num_tasks; i++) {
                 ts->tasks[i].P = i;
@@ -1602,7 +1600,7 @@ time_value find_max_deadline (struct task_set* ts)
     }
     return max;
 }
-#ifdef USE_CLUSTER
+
 int are_all_tasks_in_clusters (struct task_set* ts)
 {
     int i;
@@ -1671,7 +1669,7 @@ int requires_runtime_pt_support (struct task_set* ts)
 
     return FALSE;
 }
-#endif
+
 #ifdef USE_DVS
 time_value modify_task_C_by_freq(time_value Cu, freq_scale freq)
 {

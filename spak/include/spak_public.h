@@ -73,8 +73,8 @@ typedef int time_value;
 typedef double freq_scale;
 static freq_scale valid_f_scale[]= {0.1,0.3,0.5,0.7,0.9,1.0};
 typedef int freq_level;
-#define NUMBER_OF_ARRAY(a)   ((sizeof(a))/(sizeof(a[0])))
-#define MAX_FREQ_LEVEL       (NUMBER_OF_ARRAY(valid_f_scale)-1)
+#define SIZE_OF_ARRAY(a)   ((sizeof(a))/(sizeof(a[0])))
+#define MAX_FREQ_LEVEL       (SIZE_OF_ARRAY(valid_f_scale)-1)
 #define MIN_FREQ_LEVEL       (0)
 typedef double power_value;
 typedef double energy_value;

@@ -14,9 +14,35 @@ typedef struct {
 } tab_item_t;
 
 #define TOTAL_TASKS_NUMBER   (10)
+#define SIMULATE_TIME        (50000)
 
 FILE* log_fp = NULL;
 FILE* power_fp = NULL;
+
+static long fmalloc_cnt = 0;
+
+#define FMALLOC_CNT
+
+static inline void* fmalloc (size_t size)
+{
+    void* p = malloc (size);
+    if (!p) {
+        printf ("oops: out of memory\n");
+        assert (0);
+    }
+#ifdef FMALLOC_CNT
+    fmalloc_cnt++;
+#endif
+    return p;
+}
+
+static inline void ffree (void* p)
+{
+#ifdef FMALLOC_CNT
+    fmalloc_cnt--;
+#endif
+    free (p);
+}
 
 static struct task_set* create_radom_task_set_by_utilization(const double u)
 {
@@ -31,7 +57,7 @@ static struct task_set* create_radom_task_set_by_utilization(const double u)
                 TOTAL_TASKS_NUMBER,      //Total tasks
                 1000,                    //max_deadline
                 "ee_fppt",               //analysis
-                1,                       //multiplier
+                4,                       //multiplier
                 u,                       //set_u
                 FALSE,                   //has_jitter
                 FALSE);                  //has_independent_deadline
@@ -44,24 +70,42 @@ static struct task_set* create_radom_task_set_by_utilization(const double u)
 
 static struct task_set* create_special_task_set(void)
 {
-	struct task_set* ts = NULL;
+    struct task_set* ts = NULL;
+    struct task_config {
+        time_value cu;
+        time_value t;
+
+    };
+    struct task_config tc[10]= {
+        {10,133},
+        {3,121},
+        {15,271},
+        {12,536},
+        {8,329},
+        {3,807},
+        {4,58},
+        {6,513},
+        {5,74},
+        {3,479},
+    };
+
     ts = create_task_set (10, 25, 25, 10,
                           "special task set",
                           10000, 0, 0, 0,
                           "ee_fppt");
-    new_dvs_task (ts,22,988,988,1,988,0,0,MAX_FREQ_LEVEL,"t0");
-    new_dvs_task (ts,32,253,253,1,253,0,0,MAX_FREQ_LEVEL,"t1");
-    new_dvs_task (ts,14,169,169,1,169,0,0,MAX_FREQ_LEVEL,"t2");
-    new_dvs_task (ts,14,382,382,1,382,0,0,MAX_FREQ_LEVEL,"t3");
-    new_dvs_task (ts,21,620,620,1,620,0,0,MAX_FREQ_LEVEL,"t4");
-    new_dvs_task (ts,77,805,805,1,805,0,0,MAX_FREQ_LEVEL,"t5");
-    new_dvs_task (ts,35,472,472,1,472,0,0,MAX_FREQ_LEVEL,"t6");
-    new_dvs_task (ts,14,276,276,1,276,0,0,MAX_FREQ_LEVEL,"t7");
-    new_dvs_task (ts,86,781,781,1,781,0,0,MAX_FREQ_LEVEL,"t8");
-    new_dvs_task (ts,84,839,839,1,839,0,0,MAX_FREQ_LEVEL,"t9");
+    new_dvs_task (ts,tc[0].cu,tc[0].t,tc[0].t,1,tc[0].t,0,0,MAX_FREQ_LEVEL,"t0");
+    new_dvs_task (ts,tc[1].cu,tc[1].t,tc[1].t,1,tc[1].t,0,0,MAX_FREQ_LEVEL,"t1");
+    new_dvs_task (ts,tc[2].cu,tc[2].t,tc[2].t,1,tc[2].t,0,0,MAX_FREQ_LEVEL,"t2");
+    new_dvs_task (ts,tc[3].cu,tc[3].t,tc[3].t,1,tc[3].t,0,0,MAX_FREQ_LEVEL,"t3");
+    new_dvs_task (ts,tc[4].cu,tc[4].t,tc[4].t,1,tc[4].t,0,0,MAX_FREQ_LEVEL,"t4");
+    new_dvs_task (ts,tc[5].cu,tc[5].t,tc[5].t,1,tc[5].t,0,0,MAX_FREQ_LEVEL,"t5");
+    new_dvs_task (ts,tc[6].cu,tc[6].t,tc[6].t,1,tc[6].t,0,0,MAX_FREQ_LEVEL,"t6");
+    new_dvs_task (ts,tc[7].cu,tc[7].t,tc[7].t,1,tc[7].t,0,0,MAX_FREQ_LEVEL,"t7");
+    new_dvs_task (ts,tc[8].cu,tc[8].t,tc[8].t,1,tc[8].t,0,0,MAX_FREQ_LEVEL,"t8");
+    new_dvs_task (ts,tc[9].cu,tc[9].t,tc[9].t,1,tc[9].t,0,0,MAX_FREQ_LEVEL,"t9");
     set_priorities (ts, INORDER);
     feasible(ts, TRUE);
-	return ts;
+    return ts;
 }
 
 static int set_taskset_MPTA(struct task_set* ts)
@@ -148,16 +192,6 @@ static int try_feasible_after_task_slowdown(struct task_set* ts, const int t)
     return ret;
 }
 
-static inline void* xmalloc (size_t size)
-{
-    void* p = malloc (size);
-    if (!p) {
-        printf ("oops: out of memory\n");
-        assert (0);
-    }
-    return p;
-}
-
 static inline time_value get_task_C_at_set_f(struct task_set* ts, const int t, const freq_level f)
 {
     assert (f >= MIN_FREQ_LEVEL);
@@ -179,7 +213,9 @@ static inline energy_value get_task_energy_at_set_f(struct task_set* ts, const i
     assert (f >= MIN_FREQ_LEVEL);
     assert (f <= MAX_FREQ_LEVEL);
 
-    return 1.0*get_task_C_at_set_f(ts,t,f)*pow(valid_f_scale[f], 3.0);
+    int exe_times = (int)(SIMULATE_TIME/get_period(ts,t));
+
+    return 1.0*exe_times*get_task_C_at_set_f(ts,t,f)*pow(valid_f_scale[f], 3.0);
 }
 
 static inline energy_value calculate_saved_energy_after_task_slowdown(struct task_set* ts, const int t)
@@ -241,7 +277,7 @@ static void free_tab(void* p, int r, int c)
             free_task_set(tab[j][i].ts);
         }
     }
-    free(tab);
+    ffree(tab);
 }
 
 static struct task_set* get_lowest_energy_taskset_on_sub_freq(struct task_set* ts, const freq_level f)
@@ -255,7 +291,7 @@ static struct task_set* get_lowest_energy_taskset_on_sub_freq(struct task_set* t
     const int total_tasks_num = num_tasks(ts);
     const time_value max_time = modify_task_C_by_freq(sum_cu_in_same_freq_level(ts, f), valid_f_scale[f-1]);
 
-    tab_item_t (*tab)[max_time+1] = (tab_item_t (*)[max_time+1])xmalloc(
+    tab_item_t (*tab)[max_time+1] = (tab_item_t (*)[max_time+1])fmalloc(
                                         (total_tasks_num+1)*(max_time+1)*sizeof(tab_item_t));
     memset(tab,0,(total_tasks_num+1)*(max_time+1)*sizeof(tab_item_t));
     for(i=0; i<=max_time; i++) {
@@ -354,7 +390,7 @@ static void do_fp_ptdvs(struct task_set* ts_old)
     static int count = 0;
     struct task_set* ts = copy_task_set(ts_old);
 
-    fprintf(power_fp, "usage = %f\t ",utilization_set(ts_old));
+    fprintf(power_fp, "%f\t ",utilization_set(ts_old));
     fprintf(log_fp,"FP_PTDVS do %d times.\n",++count);
     fprintf(log_fp,"Origin Taskset.\n");
     fprint_task_set (ts, log_fp);
@@ -368,15 +404,15 @@ static void do_fp_ptdvs(struct task_set* ts_old)
     assert(feasible(ts, TRUE)==num_tasks(ts));
     fprint_task_set (ts, log_fp);
 
-    simulate_power(ts, 500000, power_fp);
+    simulate_power(ts, SIMULATE_TIME, power_fp);
     free_task_set(ts);
 }
 
 static int try_to_make_schedulable_ee_fppt(struct task_set* ts, int t)
 {
-	int ret = TRUE;
-	int i,j,k = 0;
-	struct task_set* ts_copy = copy_task_set(ts);
+    int ret = TRUE;
+    int i,j,k = 0;
+    struct task_set* ts_copy = copy_task_set(ts);
 
     for(j=num_tasks(ts_copy)-1; j>get_pri(ts_copy,t); j--) {
         int feas;
@@ -386,15 +422,15 @@ static int try_to_make_schedulable_ee_fppt(struct task_set* ts, int t)
             set_preempt_thresh(ts_copy,j,--PT);
         }
         if(feas==FALSE) {
-        	ret =  FALSE;
-        	goto out;
+            ret =  FALSE;
+            goto out;
         }
     }
 
     for(k=get_pri(ts_copy,t); k>=0; k--) {
         if(feasible_one_task(ts_copy,k)==FALSE) {
-        	ret =  FALSE;
-        	goto out;
+            ret =  FALSE;
+            goto out;
         }
     }
 
@@ -403,12 +439,12 @@ static int try_to_make_schedulable_ee_fppt(struct task_set* ts, int t)
     feasible(ts_copy, TRUE);
     print_task_set (ts_copy);
 
-    for(i=num_tasks(ts_copy)-1; i>=0; i--){
-    	set_preempt_thresh(ts,i,get_preempt_thresh(ts_copy,i));
+    for(i=num_tasks(ts_copy)-1; i>=0; i--) {
+        set_preempt_thresh(ts,i,get_preempt_thresh(ts_copy,i));
     }
     assert(feasible(ts, TRUE)==num_tasks(ts));
 out:
-	free_task_set(ts_copy);
+    free_task_set(ts_copy);
     return ret;
 }
 
@@ -419,7 +455,7 @@ static void do_ee_fppt(struct task_set* ts_old)
     int i = 0;
     freq_level old_f_level = MIN_FREQ_LEVEL;
 
-    fprintf(power_fp, "usage = %f\t ",utilization_set(ts_old));
+    fprintf(power_fp, "%f\t ",utilization_set(ts_old));
     fprintf(log_fp,"EE_FPPT do %d times.\n",++count);
     fprintf(log_fp,"Origin Taskset.\n");
     fprint_task_set (ts, log_fp);
@@ -438,16 +474,16 @@ static void do_ee_fppt(struct task_set* ts_old)
     }
 
     if(i>=0) {
-    	if(!try_to_make_schedulable_ee_fppt(ts, i)){
-    		set_task_frequency_level(ts,i,old_f_level);
-    	}
+        if(!try_to_make_schedulable_ee_fppt(ts, i)) {
+            set_task_frequency_level(ts,i,old_f_level);
+        }
     }
 
     fprintf(log_fp,"Final Taskset.\n");
     assert(feasible(ts, TRUE)==num_tasks(ts));
     fprint_task_set (ts, log_fp);
 
-    simulate_power(ts, 500000, power_fp);
+    simulate_power(ts, SIMULATE_TIME, power_fp);
     free_task_set(ts);
 }
 
@@ -492,7 +528,7 @@ static void do_greedy(struct task_set* ts_old)
     int i = 0;
     freq_level old_f_level = MAX_FREQ_LEVEL;
 
-    fprintf(power_fp, "usage = %f\t ",utilization_set(ts_old));
+    fprintf(power_fp, "%f\t ",utilization_set(ts_old));
     fprintf(log_fp,"GREEDY do %d times.\n",++count);
     fprintf(log_fp,"Origin Taskset.\n");
     fprint_task_set (ts, log_fp);
@@ -515,7 +551,7 @@ static void do_greedy(struct task_set* ts_old)
     assert(feasible(ts, TRUE)==num_tasks(ts));
     fprint_task_set (ts, log_fp);
 
-    simulate_power(ts, 500000, power_fp);
+    simulate_power(ts, SIMULATE_TIME, power_fp);
     free_task_set(ts);
 }
 
@@ -535,11 +571,13 @@ int main(int argc, char* argv[])
     FILE* fp_ptdvs_power_fp = fopen("fp_ptdvs.power","w");
     FILE* ee_fppt_power_fp = fopen("ee_fppt.power","w");
     FILE* greedy_power_fp = fopen("greedy.power","w");
-
+    fprintf(fp_ptdvs_power_fp, "usage\ttime\tenergy\tdispatch\n");
+    fprintf(ee_fppt_power_fp, "usage\ttime\tenergy\tdispatch\n");
+    fprintf(greedy_power_fp, "usage\ttime\tenergy\tdispatch\n");
+#if 1
     for(u=0.05; u<2; u+=0.05) {
-        for(i=0; i<10; i++) {
+        for(i=0; i<100; i++) {
             ts = create_radom_task_set_by_utilization(u);
-        	//ts = create_special_task_set();
 
             log_fp = fp_ptdvs_log_fp;
             power_fp = fp_ptdvs_power_fp;
@@ -556,6 +594,23 @@ int main(int argc, char* argv[])
             free_task_set(ts);
         }
     }
+#else
+    ts = create_special_task_set();
+
+    log_fp = fp_ptdvs_log_fp;
+    power_fp = fp_ptdvs_power_fp;
+    do_fp_ptdvs(ts);
+
+    log_fp = ee_fppt_log_fp;
+    power_fp = ee_fppt_power_fp;
+    do_ee_fppt(ts);
+
+    log_fp = greedy_log_fp;
+    power_fp = greedy_power_fp;
+    do_greedy(ts);
+
+    free_task_set(ts);
+#endif
     fclose(fp_ptdvs_log_fp);
     fclose(ee_fppt_log_fp);
     fclose(greedy_log_fp);
